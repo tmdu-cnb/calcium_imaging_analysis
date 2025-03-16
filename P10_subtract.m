@@ -12,7 +12,7 @@ for i = 1:numel(stat)
     end
 end
 
-% 対応するFの行を削除
+% 対応するFの行を削除する
 F(rows_to_delete, :) = [];
 
 for i = numel(rows_to_delete):-1:1;
