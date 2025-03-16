@@ -1,13 +1,11 @@
-
-
-mkdir DTA 100% folder name DTA
-freq=5; %Change to your frequency
+mkdir result %folder name result
+freq=1; %Change to your frequency
 
 rows_to_delete = [];
 % statセル配列の各要素について処理
 for i = 1:numel(stat)
     % npixが30未満の場合、対応するFの行を削除するためにrows_to_deleteに追加
-    if stat{i}.npix < 30
+    if stat{i}.npix < 20
         rows_to_delete = [rows_to_delete, i];
     end
 end
@@ -15,7 +13,8 @@ end
 % 対応するFの行を削除
 F(rows_to_delete, :) = [];
 
-for i = numel(rows_to_delete):-1:1;
+for i = numel(rows_to_delete):-1:1
+    stat(rows_to_delete(i)) = [];
 end
 
 nR_pre = size(F, 1);  % FのROIの数
@@ -93,26 +92,41 @@ end
 min_F2=repmat(min_F,1,nF_pre);
 F0_pre=F-min_F2;  %すべてのフレームで最も小さいシグナル値を引く。
 
-Frame_Size=50*freq;
+Frame_Size=20*freq;
 
 for i = 1:nR_pre % 各ROIについて
     signal_pre = F0_pre(i, 1:nF_pre);
 
-    for k = 1:fix(nF_pre/Frame_Size)  % 各開始フレームについて
-        T_pre = mean(signal_pre((k-1)*Frame_Size+1:k*Frame_Size))+std(signal_pre((k-1)*Frame_Size+1:k*Frame_Size));  % 現在のフレームからFsizeフレーム分の信号の閾値
-        T2_pre=repmat(T_pre,1, Frame_Size);
-        signal_1=signal_pre((k-1)*Frame_Size+1:k*Frame_Size);
-        signal_2=signal_1;
-        signal_1(signal_1>T2_pre)=NaN;
-        T3=mean(signal_1, 'omitnan');
-        T4=repmat(T3,1,Frame_Size);
-        signal_3=signal_2-T4;
-        F_pre(i,(k-1)*Frame_Size+1:k*Frame_Size)=signal_3;
+    for k = 1:fix(nF_pre / Frame_Size)  % 各開始フレームについて
+        T_pre = mean(signal_pre((k-1) * Frame_Size + 1 : k * Frame_Size)) + std(signal_pre((k-1) * Frame_Size + 1 : k * Frame_Size));  % 現在のフレームからFsizeフレーム分の信号の閾値
+        T2_pre = repmat(T_pre, 1, Frame_Size);
+        signal_1 = signal_pre((k-1) * Frame_Size + 1 : k * Frame_Size);
+        signal_2 = signal_1;
+        signal_1(signal_1 > T2_pre) = NaN;
+        T3 = mean(signal_1, 'omitnan');
+        T4 = repmat(T3, 1, Frame_Size);
+        signal_3 = signal_2 - T4;
+        F_pre(i, (k-1) * Frame_Size + 1 : k * Frame_Size) = signal_3;
     end
-  % F_pre(i,Frame_Size*k+1:nF_pre)= F0_pre(i,Frame_Size*k+1:nF_pre);
+
+    % 最後の残りのフレームを処理
+    if mod(nF_pre, Frame_Size) > 0
+        start_idx = fix(nF_pre / Frame_Size) * Frame_Size + 1;
+        end_idx = nF_pre;
+        T_pre = mean(signal_pre(start_idx:end_idx)) + std(signal_pre(start_idx:end_idx));
+        T2_pre = repmat(T_pre, 1, end_idx - start_idx + 1);
+        signal_1 = signal_pre(start_idx:end_idx);
+        signal_2 = signal_1;
+        signal_1(signal_1 > T2_pre) = NaN;
+        T3 = mean(signal_1, 'omitnan');
+        T4 = repmat(T3, 1, end_idx - start_idx + 1);
+        signal_3 = signal_2 - T4;
+        F_pre(i, start_idx:end_idx) = signal_3;
+    end
 end
 
-F_pre2=F_pre+min_F2(:,1:size(F_pre,2));
+F_pre2 = F_pre + min_F2(:, 1:size(F_pre, 2));
+
 
 F6=horzcat(F_filtered(:,1:2), F_pre2,F_filtered(:,nF_pre+3:nF_pre+5));
 % for k=1:10
