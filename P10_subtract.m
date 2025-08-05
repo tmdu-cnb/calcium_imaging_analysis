@@ -1,5 +1,26 @@
 mkdir result % folder name result
-freq=5; %Change to your frequency
+
+% 条件の値を入力するポップアップを表示
+prompt = {'Enter frequency of imaging (freq, e.g., 5):', ...
+          'Enter threshold for npix (ROI size) (e.g., 2.5 * 2.5 * 3.14):', ...
+          'Enter MINIMUM of y_range / x_range ratio (e.g., 2.5 for dendrite):', ...
+          'Enter MAXIMUM of y_range / x_range ratio (e.g., 200 for dendrite):'};
+dlg_title = 'Set Conditions';
+num_lines = 1;
+default_ans = {'5', '20', '2.5', '200.0'}; % デフォルト値を調整
+answer = inputdlg(prompt, dlg_title, num_lines, default_ans);
+
+% 入力値を数値に変換
+freq = str2double(answer{1});
+npix_threshold = str2double(answer{2});
+ratio_min = str2double(answer{3});
+ratio_max = str2double(answer{4});
+
+% 入力された値を確認
+disp(['Frequency (freq): ', num2str(freq)]);
+disp(['npix threshold: ', num2str(npix_threshold)]);
+disp(['y_range / x_range ratio range: ', num2str(ratio_min), ' ~ ', num2str(ratio_max)]);
+
 
 rows_to_delete = [];
 
@@ -11,7 +32,7 @@ end
 % statセル配列の各要素について処理
 for i = 1:numel(stat)
     % npixが50未満の場合、対応するFの行を削除するためにrows_to_deleteに追加
-    if stat{i}.npix < 2.5*2.5*3.14
+    if stat{i}.npix < npix_threshold
         rows_to_delete = [rows_to_delete, i];
     end
 end
@@ -21,9 +42,10 @@ for i = 1:numel(stat)
     % 各ROIのxpixとypixの範囲を取得
     x_range = max(stat{i}.xpix) - min(stat{i}.xpix);
     y_range = max(stat{i}.ypix) - min(stat{i}.ypix);
+    ratio = y_range / x_range;
 
-    % 条件をチェックし、満たさない場合は削除リストに追加
-    if y_range / x_range <= 2.5
+     % ratio が範囲外（min 未満または max 超え）なら削除
+    if ratio < ratio_min || ratio > ratio_max
         rows_to_delete = [rows_to_delete, i];
     end
 end
