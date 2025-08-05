@@ -1,22 +1,44 @@
-
-
-mkdir DTA 100% folder name DTA
+mkdir result % folder name result
 freq=5; %Change to your frequency
 
 rows_to_delete = [];
+
+% 元のROI番号を追加
+for i = 1:numel(stat)
+    stat{i}.original_roi_number = i-1; % 元のROI番号をフィールドとして追加
+end
+
 % statセル配列の各要素について処理
 for i = 1:numel(stat)
-    % npixが30未満の場合、対応するFの行を削除するためにrows_to_deleteに追加
-    if stat{i}.npix < 30
+    % npixが50未満の場合、対応するFの行を削除するためにrows_to_deleteに追加
+    if stat{i}.npix < 2.5*2.5*3.14
         rows_to_delete = [rows_to_delete, i];
     end
 end
 
-% 対応するFの行を削除する
+% % 新しい削除条件を追加
+% for i = 1:numel(stat)
+%     % 各ROIのxpixとypixの範囲を取得
+%     x_range = max(stat{i}.xpix) - min(stat{i}.xpix);
+%     y_range = max(stat{i}.ypix) - min(stat{i}.ypix);
+% 
+%     % 条件をチェックし、満たさない場合は削除リストに追加
+%     if y_range / x_range <= 2.5
+%         rows_to_delete = [rows_to_delete, i];
+%     end
+% end
+% 
+% % 重複削除（重複行がある場合に備えて一意の値にする）
+% rows_to_delete = unique(rows_to_delete);
+
+
+% 対応するFの行を削除
 F(rows_to_delete, :) = [];
 
-for i = numel(rows_to_delete):-1:1;
+for i = numel(rows_to_delete):-1:1
+    stat(rows_to_delete(i)) = [];
 end
+
 
 nR_pre = size(F, 1);  % FのROIの数
 nF_pre = size(F, 2);  % Fのフレームの数
@@ -48,7 +70,7 @@ b=zeros(size2(1),1);
 %F1=vertcat(c,F);
 F2=horzcat(a,b,F);
 
-cell_1=iscell(:,1);
+% cell_1=iscell(:,1);
 %cell_pre3=num2cell(cell_1);
 cell_pre1=ones(size2(1),1);
 %cell_pre2=num2cell(cell_pre1);
@@ -93,26 +115,41 @@ end
 min_F2=repmat(min_F,1,nF_pre);
 F0_pre=F-min_F2;  %すべてのフレームで最も小さいシグナル値を引く。
 
-Frame_Size=50*freq;
+Frame_Size=20*freq;
 
 for i = 1:nR_pre % 各ROIについて
     signal_pre = F0_pre(i, 1:nF_pre);
 
-    for k = 1:fix(nF_pre/Frame_Size)  % 各開始フレームについて
-        T_pre = mean(signal_pre((k-1)*Frame_Size+1:k*Frame_Size))+std(signal_pre((k-1)*Frame_Size+1:k*Frame_Size));  % 現在のフレームからFsizeフレーム分の信号の閾値
-        T2_pre=repmat(T_pre,1, Frame_Size);
-        signal_1=signal_pre((k-1)*Frame_Size+1:k*Frame_Size);
-        signal_2=signal_1;
-        signal_1(signal_1>T2_pre)=NaN;
-        T3=mean(signal_1, 'omitnan');
-        T4=repmat(T3,1,Frame_Size);
-        signal_3=signal_2-T4;
-        F_pre(i,(k-1)*Frame_Size+1:k*Frame_Size)=signal_3;
+    for k = 1:fix(nF_pre / Frame_Size)  % 各開始フレームについて
+        T_pre = mean(signal_pre((k-1) * Frame_Size + 1 : k * Frame_Size)) + std(signal_pre((k-1) * Frame_Size + 1 : k * Frame_Size));  % 現在のフレームからFsizeフレーム分の信号の閾値
+        T2_pre = repmat(T_pre, 1, Frame_Size);
+        signal_1 = signal_pre((k-1) * Frame_Size + 1 : k * Frame_Size);
+        signal_2 = signal_1;
+        signal_1(signal_1 > T2_pre) = NaN;
+        T3 = mean(signal_1, 'omitnan');
+        T4 = repmat(T3, 1, Frame_Size);
+        signal_3 = signal_2 - T4;
+        F_pre(i, (k-1) * Frame_Size + 1 : k * Frame_Size) = signal_3;
     end
-  % F_pre(i,Frame_Size*k+1:nF_pre)= F0_pre(i,Frame_Size*k+1:nF_pre);
+
+    % 最後の残りのフレームを処理
+    if mod(nF_pre, Frame_Size) > 0
+        start_idx = fix(nF_pre / Frame_Size) * Frame_Size + 1;
+        end_idx = nF_pre;
+        T_pre = mean(signal_pre(start_idx:end_idx)) + std(signal_pre(start_idx:end_idx));
+        T2_pre = repmat(T_pre, 1, end_idx - start_idx + 1);
+        signal_1 = signal_pre(start_idx:end_idx);
+        signal_2 = signal_1;
+        signal_1(signal_1 > T2_pre) = NaN;
+        T3 = mean(signal_1, 'omitnan');
+        T4 = repmat(T3, 1, end_idx - start_idx + 1);
+        signal_3 = signal_2 - T4;
+        F_pre(i, start_idx:end_idx) = signal_3;
+    end
 end
 
-F_pre2=F_pre+min_F2(:,1:size(F_pre,2));
+F_pre2 = F_pre + min_F2(:, 1:size(F_pre, 2));
+
 
 F6=horzcat(F_filtered(:,1:2), F_pre2,F_filtered(:,nF_pre+3:nF_pre+5));
 % for k=1:10
