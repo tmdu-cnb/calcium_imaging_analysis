@@ -16,20 +16,20 @@ for i = 1:numel(stat)
     end
 end
 
-% % 新しい削除条件を追加
-% for i = 1:numel(stat)
-%     % 各ROIのxpixとypixの範囲を取得
-%     x_range = max(stat{i}.xpix) - min(stat{i}.xpix);
-%     y_range = max(stat{i}.ypix) - min(stat{i}.ypix);
-% 
-%     % 条件をチェックし、満たさない場合は削除リストに追加
-%     if y_range / x_range <= 2.5
-%         rows_to_delete = [rows_to_delete, i];
-%     end
-% end
-% 
-% % 重複削除（重複行がある場合に備えて一意の値にする）
-% rows_to_delete = unique(rows_to_delete);
+% 新しい削除条件を追加
+for i = 1:numel(stat)
+    % 各ROIのxpixとypixの範囲を取得
+    x_range = max(stat{i}.xpix) - min(stat{i}.xpix);
+    y_range = max(stat{i}.ypix) - min(stat{i}.ypix);
+
+    % 条件をチェックし、満たさない場合は削除リストに追加
+    if y_range / x_range <= 2.5
+        rows_to_delete = [rows_to_delete, i];
+    end
+end
+
+% 重複削除（重複行がある場合に備えて一意の値にする）
+rows_to_delete = unique(rows_to_delete);
 
 
 % 対応するFの行を削除
