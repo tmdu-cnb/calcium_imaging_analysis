@@ -7,7 +7,7 @@ MATLAB によるカルシウムイメージング解析用リポジトリです�
 - 1P / 2P / glia など 用途別ディレクトリ構成
 - ROI 検出・ベースライン補正・可視化・頻度解析などの 基本処理を一本化
 ---
-
+```
 ## リポジトリ構成（概要）
 calcium_imaging_analysis/
 ├── 1P/                                # 1光子解析のコアスクリプト
@@ -38,3 +38,4 @@ calcium_imaging_analysis/
 ├── .gitignore
 ├── README.md                          # ← このファイル
 └── startup.m                          # ← 任意：パス追加の初期処理
+```
