@@ -1,11 +1,10 @@
-40 = size(F_signal2, 1);
+n = size(F_signal2, 1);
 F_signal2_2=F_signal2;
 if n > 300
     idx_rand = randperm(n, 300);  % 300 random indexes are chosen
     F_signal2 = F_signal2(idx_rand, :);
     n = 300;  % Update n to 300
 end
-
 cormat = zeros(n, n);
 Dis_Cor = cell(1, 161);  % Update to 161 to include 0 to 160
 
@@ -18,8 +17,8 @@ for i = 1:n
         a2 = sum(sub2 .* sub2);
         
         cormat(i, j) = sum(sub1 .* sub2) / sqrt(a1 * a2);
-        dx = bsxfun(@minus, F_signal2(i, end-1), F_signal2(j, end-1));
-        dy = bsxfun(@minus, F_signal2(i, end), F_signal2(j, end));
+        dx = bsxfun(@minus, F_signal2(i, end-2), F_signal2(j, end-2));
+        dy = bsxfun(@minus, F_signal2(i, end-1), F_signal2(j, end-1));
         dis = sqrt(dx.^2 + dy.^2);
 
         bin = min(floor(dis / 5), 160);  % Update to 160
@@ -43,10 +42,11 @@ end
 CrossCorrelation_all = M;
 
 writematrix(CrossCorrelation_all, 'Correlation_index.csv');
-movefile('Correlation_index.csv', 'DTA');
+movefile('Correlation_index.csv', 'result');
 
 % Create a new figure, axis, and color bar
 figure; pcolor(cormat); axis ij; axis off; grid off; shading flat;
 colorbar('location', 'eastoutside');
+caxis([0 1]);  % Set colorbar limits to 0-1
 saveas(gcf, 'correlation_fig', 'svg');
 close;

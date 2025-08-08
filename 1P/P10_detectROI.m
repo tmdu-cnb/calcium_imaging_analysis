@@ -1,10 +1,44 @@
+
+
+% ポップアップで閾値の設定値を入力させる
+
+
+prompt = { ...
+    'Threshold for the fluorescent intensity value (Check fluorescent intensity in Suite2P) (e.g.40):', ...
+    'Threshold for the number of sd(T) (e.g.,1.5):', ...
+    'Threshold for the number of sd(F) (e.g.,5):', ...
+    'Threshold for removing low ROIs (例: 0.2):', ...
+     'Number of the last frame for traces (例: 1000):' ...
+};
+dlg_title = 'Condition settings';
+num_lines = 1;
+default_values = {'40', '1', '5', '0.1', '1000'}; % デフォルト値
+answer = inputdlg(prompt, dlg_title, num_lines, default_values);
+
+% 入力値を数値として取得
+threshold_mean = str2double(answer{1});
+std_multiplier_T = str2double(answer{2});
+std_multiplier_F = str2double(answer{3});
+roi_remove_ratio = str2double(answer{4});
+Num_frames = str2double(answer{5});
+
+% 必要に応じて結果を表示
+disp('入力された閾値:');
+disp(['平均値の閾値: ', num2str(threshold_mean)]);
+disp(['標準偏差1倍の閾値: ', num2str(std_multiplier_T)]);
+disp(['標準偏差5倍の閾値: ', num2str(std_multiplier_F)]);
+disp(['ROI削除割合: ', num2str(roi_remove_ratio)]);
+disp('処理完了');
+
+
+
 % 元の配列のサイズを取得
 nR = size(F6, 1);  % FneuのROIの数
 nF = size(F6, 2);  % Fneuのフレームの数
 % 各行の平均値を計算
 mean_values = mean(F6(:, 3:nF-3), 2);
 % 平均値が100以下の行を特定
-rows_to_remove = mean_values <= 40; % データによって変更する
+rows_to_remove = mean_values <= threshold_mean; % データによって変更する
 % 条件に合致する行を削除
 F6(rows_to_remove, :) = [];
 
@@ -18,7 +52,7 @@ file_2 = F6(:, 3:end);
 n_f2 = size(file_2, 2);
 file_3 = file_2(:, 1:n_f2 - 3);
 % TとT2の計算
-T = mean(file_3, 2) + 1.5 * std(file_3, 0, 2);
+T = mean(file_3, 2) + std_multiplier_T * std(file_3, 0, 2);
 T2 = repmat(T, 1, n_f2 - 3);
 % NaNで置き換え
 file_3(file_3 > T2) = NaN;
@@ -27,7 +61,7 @@ M_file_3 = mean(file_3, 2, 'omitnan');
 S_file_3 = std(file_3, 0, 2, 'omitnan');
 FBack = M_file_3 + S_file_3;
 % 閾値を設定して行をフィルタリング
-F_Thre = M_file_3 + 5 * S_file_3;
+F_Thre = M_file_3 + std_multiplier_F * S_file_3;
 rows_to_keep = any(file_2(:, 1:n_f2-3) > F_Thre, 2);  % rows_to_keep を計算
 % F6とFBackをフィルタリング
 F6 = F6(rows_to_keep, :);  % F6をフィルタリング
@@ -70,9 +104,9 @@ for i = 1:n_R3
    % 処理した結果をF_signal2に反映
    F_signal2(i, :) = signal;
 end
-% widthの平均値が低いROIを最低から20%まで削除
+% widthの平均値が低いROIを最低から10%まで削除
 nR1_3 = size(F_signal2, 1);
-w_size = round(nR1_3 * 0.1);
+w_size = round(nR1_3 * roi_remove_ratio);
 A = zeros(nR1_3, 1); % Aを初期化
 for i = 1:nR1_3  % 各ROIについて
    signal3 = F_signal2(i, 1:end-3);
@@ -91,7 +125,7 @@ F_signal2_check2 = F_signal2;
 num_zero_columns = 0; % ここで任意の数を指定
 % Figure作成
 min_value = min(120, nF_pre); % 60とnF_preの小さい方を選択
-ranges = {[1:1000], [1:1000], [1:1000]}; % 任意のframe数の範囲を指定
+ranges = {[1:Num_frames], [1:Num_frames], [1:Num_frames]}; % 任意のframe数の範囲を指定
 %ranges = {[1:min_value], [121:min_value+120], [181:min_value+180]}; % 任意のframe数の範囲を指定
 titles = {'Columns 1', 'Columns 2', 'Columns 3'};
 file_names = {'F_signal2_1.eps', 'F_signal2_2.eps', 'F_signal2_3.eps'};
@@ -165,6 +199,7 @@ d2 = table(d);  % テーブル化
 % F_signal3からROI番号列を除去し、残りのデータを整理
 F_signal3_cleaned = F_signal3(:, 2:n_f2-3);  % 信号データ部分のみ抽出
 % ROI番号を最後の列に移動（1回のみ）
+
 ROI_numbers = F_signal3(:, end);  % ROI番号列を抽出
 F_signal4 = horzcat(F_signal3_cleaned, ROI_numbers);  % 信号データの最後にROI番号を追加
 
@@ -213,4 +248,12 @@ header = {'ROI_number', 'Suite2P_ROI_number'};  % ヘッダーを定義
 
 % ヘッダーをoriginal_ROI_numberの上に追加
 original_ROI_number = vertcat(header, original_ROI_number);
+
+
+
+
+
+
+
+
 
