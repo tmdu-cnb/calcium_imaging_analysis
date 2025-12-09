@@ -72,25 +72,139 @@ if isempty(unique_original_rois)
     error('original_roi_numberが見つかりませんでした。stat変数にoriginal_roi_numberフィールドが存在するか確認してください。');
 end
 
-% リストボックスでoriginal_roi_numberを選択（複数選択可能）
-% 画像に表示される番号（original_roi_number）を表示
+% カスタムダイアログでROI選択（リスト選択と番号入力の両方を表示）
 list_items = cellstr(num2str(unique_original_rois));
-[selection, ok] = listdlg(...
-    'ListString', list_items, ...
-    'Name', 'ROI番号の選択（画像に表示される番号）', ...
-    'PromptString', '削除するROI番号（画像に表示される番号）を選択してください（複数選択可）:', ...
-    'SelectionMode', 'multiple', ...
-    'ListSize', [300, 400] ...
-);
 
-% ユーザーがキャンセルした場合
-if ~ok || isempty(selection)
+% ダイアログの作成
+dlg_width = 400;
+dlg_height = 500;
+screen_size = get(0, 'ScreenSize');
+dlg_pos = [(screen_size(3)-dlg_width)/2, (screen_size(4)-dlg_height)/2, dlg_width, dlg_height];
+
+dlg = dialog('Position', dlg_pos, 'Name', 'ROI番号の選択（画像に表示される番号）');
+
+% 結果格納用（appdataを使用）
+setappdata(dlg, 'result_ok', false);
+setappdata(dlg, 'result_list_selection', []);
+setappdata(dlg, 'result_input_text', '');
+
+% リストボックスのラベル
+uicontrol('Parent', dlg, ...
+    'Style', 'text', ...
+    'Position', [20, dlg_height-40, 360, 20], ...
+    'String', 'リストから選択（Ctrl+クリックで複数選択可）:', ...
+    'HorizontalAlignment', 'left', ...
+    'FontSize', 10);
+
+% リストボックス
+listbox = uicontrol('Parent', dlg, ...
+    'Style', 'listbox', ...
+    'Position', [20, dlg_height-320, 360, 270], ...
+    'String', list_items, ...
+    'Max', 2, ...  % 複数選択を有効化
+    'Min', 0, ...
+    'Value', [], ...  % 初期選択なし
+    'FontSize', 10, ...
+    'Tag', 'roi_listbox');
+
+% 番号入力のラベル
+uicontrol('Parent', dlg, ...
+    'Style', 'text', ...
+    'Position', [20, dlg_height-355, 360, 20], ...
+    'String', '番号を直接入力（カンマまたはスペース区切り）:', ...
+    'HorizontalAlignment', 'left', ...
+    'FontSize', 10);
+
+% 番号入力フィールド
+editbox = uicontrol('Parent', dlg, ...
+    'Style', 'edit', ...
+    'Position', [20, dlg_height-385, 360, 25], ...
+    'String', '', ...
+    'HorizontalAlignment', 'left', ...
+    'FontSize', 10, ...
+    'Tag', 'roi_editbox');
+
+% 説明テキスト
+uicontrol('Parent', dlg, ...
+    'Style', 'text', ...
+    'Position', [20, dlg_height-430, 360, 35], ...
+    'String', '※ リスト選択と番号入力の両方を使用できます。両方指定した場合は統合されます。', ...
+    'HorizontalAlignment', 'left', ...
+    'FontSize', 9, ...
+    'ForegroundColor', [0.4, 0.4, 0.4]);
+
+% OKボタン（無名関数でコールバック）
+uicontrol('Parent', dlg, ...
+    'Style', 'pushbutton', ...
+    'Position', [90, 20, 100, 35], ...
+    'String', 'OK', ...
+    'FontSize', 10, ...
+    'Callback', @(src,evt) roi_dialog_ok(dlg));
+
+% キャンセルボタン
+uicontrol('Parent', dlg, ...
+    'Style', 'pushbutton', ...
+    'Position', [210, 20, 100, 35], ...
+    'String', 'キャンセル', ...
+    'FontSize', 10, ...
+    'Callback', @(src,evt) roi_dialog_cancel(dlg));
+
+% ウィンドウが閉じられた場合の処理
+set(dlg, 'CloseRequestFcn', @(src,evt) roi_dialog_cancel(dlg));
+
+% ダイアログが閉じられるまで待機
+uiwait(dlg);
+
+% 結果を取得
+if ishandle(dlg)
+    result_ok = getappdata(dlg, 'result_ok');
+    result_list_selection = getappdata(dlg, 'result_list_selection');
+    result_input_text = getappdata(dlg, 'result_input_text');
+    delete(dlg);
+else
+    result_ok = false;
+    result_list_selection = [];
+    result_input_text = '';
+end
+
+% キャンセルされた場合
+if ~result_ok
     disp('処理がキャンセルされました。');
     return;
 end
 
-% 選択されたoriginal_roi_numberを取得
-selected_original_rois = unique_original_rois(selection);
+% リストから選択されたROI番号を取得
+selected_from_list = [];
+if ~isempty(result_list_selection)
+    selected_from_list = unique_original_rois(result_list_selection);
+end
+
+% 入力フィールドから番号を取得
+selected_from_input = [];
+if ~isempty(result_input_text)
+    input_str = result_input_text;
+    input_str = strrep(input_str, ',', ' ');  % カンマをスペースに変換
+    input_nums = str2num(input_str);  %#ok<ST2NM>
+    
+    if ~isempty(input_nums)
+        % 入力された番号が有効なROI番号かチェック
+        invalid_nums = input_nums(~ismember(input_nums, unique_original_rois));
+        if ~isempty(invalid_nums)
+            warning('以下の番号は存在しないため無視されます: %s', mat2str(invalid_nums));
+        end
+        selected_from_input = input_nums(ismember(input_nums, unique_original_rois));
+    end
+end
+
+% リスト選択と入力を統合
+selected_original_rois = unique([selected_from_list(:); selected_from_input(:)]);
+selected_original_rois = sort(selected_original_rois);
+
+% 何も選択されていない場合
+if isempty(selected_original_rois)
+    errordlg('ROI番号が選択されていません。', 'エラー');
+    return;
+end
 
 % 選択されたoriginal_roi_numberに対応するroi_numを取得
 selected_roi_nums = [];
@@ -154,3 +268,35 @@ fprintf('削除されたoriginal_roi_number（画像に表示される番号）:
 fprintf('削除されたroi_num（statのインデックス）: %s\n', mat2str(selected_roi_nums));
 fprintf('残りのROI数: %d\n', height(data_table_filtered) - 2);  % ヘッダー行を除く
 
+%% ローカル関数定義（ダイアログのコールバック用）
+
+function roi_dialog_ok(dlg)
+    % OKボタンが押された時の処理
+    if ~ishandle(dlg)
+        return;
+    end
+    
+    % リストボックスの値を取得
+    listbox_handle = findobj(dlg, 'Tag', 'roi_listbox');
+    editbox_handle = findobj(dlg, 'Tag', 'roi_editbox');
+    
+    if ~isempty(listbox_handle)
+        setappdata(dlg, 'result_list_selection', get(listbox_handle, 'Value'));
+    end
+    
+    if ~isempty(editbox_handle)
+        setappdata(dlg, 'result_input_text', get(editbox_handle, 'String'));
+    end
+    
+    setappdata(dlg, 'result_ok', true);
+    uiresume(dlg);
+end
+
+function roi_dialog_cancel(dlg)
+    % キャンセルボタンが押された時の処理
+    if ~ishandle(dlg)
+        return;
+    end
+    setappdata(dlg, 'result_ok', false);
+    uiresume(dlg);
+end
